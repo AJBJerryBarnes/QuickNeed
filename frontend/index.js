@@ -2,6 +2,7 @@
 //
 // 1/5/23    v1.0 Jerry Barnes	Trial
 // 15/5/23   v1.1 Jerry Barnes	Keep family numberfield visible so restart can be done
+// 22/5/23	 v1.2 Jerry Barnes  Fix crash when template table defined but template fields not
 //
 // 
 
@@ -89,7 +90,6 @@ function Needs() {
 	const addressField  = familyTable ? familyTable.getFieldByIdIfExists(addressFieldId) : null;
 	const postcodeField = familyTable ? familyTable.getFieldByIdIfExists(postcodeFieldId) : null;
 
-	const [familyName, setFamilyName] = useState("");
 	const [familyId, setFamilyId] = useState("");	
 	const [familyRecId, setFamilyRecId] = useState("");
 	
@@ -100,16 +100,18 @@ function Needs() {
 	
 	const familyRecordset = useRecords(familyTable ? familyTable.selectRecords() : null);
 
-    // the filter will give a case insensitive search provided at least 1 chr is entered
+    // the filter will find the family record matching the fieldid entered
 	const familyRecords = familyRecordset ? familyRecordset.filter(family => {
 			return (familyId.length > 0 && family.getCellValue(idField) == familyId)
 		}) : null;
-	
-	const templateRecords = useRecords(templateTable ? templateTable.selectRecords(
+		
+	const templateRecords = useRecords(templateTable && templateTypeField && templateNameField ? 
+										templateTable.selectRecords(
 											{sorts: [
 												{field: templateTypeField},
 												{field: templateNameField},
-											]}) : null);  // do I need the select?
+											]}
+										) : null);  // do I need the select?
 
 	if (isShowingSettings) {
         return (
