@@ -1,6 +1,6 @@
-Quick Need
+Add Request Items
 This extension will search Family by id. Selecting the family from the matching list then brings up the list of items
-from the template table so they can be picked to create need items
+from the template table so they can be picked to create request items
 
 Can be configured for table and field names
 
