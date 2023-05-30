@@ -3,6 +3,7 @@
 // 1/5/23    v1.0 Jerry Barnes	Trial
 // 15/5/23   v1.1 Jerry Barnes	Keep family numberfield visible so restart can be done
 // 22/5/23	 v1.2 Jerry Barnes  Fix crash when template table defined but template fields not
+// 30/5/23   v1.3 Jerry Barnes  Refer to requests items rather then need items
 //
 // 
 
@@ -258,10 +259,10 @@ function SettingsMenu(props) {
     return(
         <div>
             <Heading margin={2}>
-                Need Settings
+                Request Settings
             </Heading>
             <Box marginX={2}>
-                <FormField label="Which table holds the needs?">
+                <FormField label="Which table holds the requests?">
                     <TablePickerSynced
                         globalConfigKey={GlobalConfigKeys.NEED_TABLE_ID}
                         onChange={() => resetNeedTableRelatedKeys()}
