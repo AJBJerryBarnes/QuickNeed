@@ -222,7 +222,7 @@ async function addNeedRecord(tNeed, linkField, nameField, name, typeField, type,
 			const newRecordId = await tNeed.createRecordAsync({
 							[linkField]: [{id: familyRecordId}],
 							[nameField]: name,
-							[typeField]: type,
+							[typeField]: [{name: type}],
 								});
 	}
 }
@@ -303,7 +303,7 @@ function SettingsMenu(props) {
                                     table={props.needTable}
                                     globalConfigKey={GlobalConfigKeys.NEED_TYPE_FIELD_ID}
                                     allowedTypes={[
-                                        FieldType.SINGLE_LINE_TEXT
+                                        FieldType.SINGLE_SELECT
 										
                                     ]}
                                 />
