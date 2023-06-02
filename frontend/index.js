@@ -222,7 +222,7 @@ async function addNeedRecord(tNeed, linkField, nameField, name, typeField, type,
 			const newRecordId = await tNeed.createRecordAsync({
 							[linkField]: [{id: familyRecordId}],
 							[nameField]: name,
-							[typeField]: [{name: type}],
+							[typeField]: {name: type},
 								});
 	}
 }
