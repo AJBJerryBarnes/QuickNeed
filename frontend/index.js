@@ -4,6 +4,7 @@
 // 15/5/23   v1.1 Jerry Barnes	Keep family numberfield visible so restart can be done
 // 22/5/23	 v1.2 Jerry Barnes  Fix crash when template table defined but template fields not
 // 30/5/23   v1.3 Jerry Barnes  Refer to requests items rather then need items
+// 10/6/23	 v1.4 Jerry Barnes	Add a quantity to what is requested
 //
 // 
 
@@ -11,12 +12,20 @@ import { FormField, Input, ViewPicker, initializeBlock,useGlobalConfig, useSetti
 	useBase, useRecords, expandRecord, Button, TextButton, ViewportConstraint,
 	Box,
     Heading,
+	Text,
     ViewPickerSynced,
     RecordCard,
     TablePickerSynced,
     FieldPickerSynced} from '@airtable/blocks/ui';
 import React, { useState  } from "react"; 
 import { FieldType } from '@airtable/blocks/models';
+
+const ITEM_CELL_WIDTH_PERCENTAGE		= '40%';
+const CATEGORY_CELL_WIDTH_PERCENTAGE	= '30%';
+const QUANTITY_CELL_WIDTH_PERCENTAGE	= '10%';
+const INCREASE_CELL_WIDTH_PERCENTAGE	= '10%';
+const DECREASE_CELL_WIDTH_PERCENTAGE	= '10%';
+
 
 const GlobalConfigKeys = {
     TEMPLATE_TABLE_ID: 'templateTableId',
@@ -34,6 +43,46 @@ const GlobalConfigKeys = {
 
 };
 
+
+class RecordProxy {
+	quantity = 0;
+	clicked = false;
+	constructor(id, name, type){
+		this.id = id;
+		this.name = name;
+		this.type = type;
+		this.quantity = 0;
+		this.clicked = false;
+	}
+	
+	click(){
+		this.clicked = true;
+	}
+	
+	setQuantity(amount){
+		this.quantity = amount;
+	}
+	
+	getClicked(){
+		return this.clicked;
+	}
+	
+	getQuantity(){
+		return this.quantity;
+	}
+	
+	getName(){
+		return this.name;
+	}
+	
+	getType(){
+		return this.type;
+	}
+	
+	getId(){
+		return this.id;
+	}
+}
 
 function Needs() {
 	
@@ -114,6 +163,7 @@ function Needs() {
 											]}
 										) : null);  // do I need the select?
 
+	const [wrapped, setWrapped] = useState([]);
 	if (isShowingSettings) {
         return (
             <ViewportConstraint minSize={{width: VIEWPORT_MIN_WIDTH, height: VIEWPORT_MIN_HEIGHT}}>
@@ -135,7 +185,7 @@ function Needs() {
                 />
             </ViewportConstraint>
         )
-    } else {
+      } else {
 		if (familyRecId){
 			return (
 				<div>
@@ -148,8 +198,8 @@ function Needs() {
 							<TextButton
 								variant="dark"
 								size="xlarge"
-								onClick={() => {
-									setFamilyRecId(record.id);
+								onClick={() => {familySelected(setFamilyRecId, record.id, templateRecords,
+														setWrapped, templateNameField, templateTypeField);
 								}}
 								
 							>
@@ -160,23 +210,28 @@ function Needs() {
 						</li>
 					))}
 					<br />
-					{templateRecords.map(record => (
-						<li key={record.id}>
-							<TextButton
-								variant="dark"
-								size="xlarge"
-								onClick={() => {
-									addNeedRecord(needTable, linkFieldId, needNameFieldId, record.getCellValue(templateNameField),
-											needTypeFieldId, record.getCellValue(templateTypeField),familyRecId);
-								}}
-								
-							>
-							{record.getCellValue(templateNameField)} , 
-							</TextButton> 
-							{record.getCellValue(templateTypeField)}
-						</li>
-					))}
-					
+					<Box margin={3}>
+						<HeaderRow />
+						{wrapped.map(record => (
+							<ItemRow record={record} key={record.getId()} wrapper={wrapped} setter={setWrapped} />
+						))}
+					</Box>
+
+					<Box display="flex" marginBottom={2}>
+						<Button
+							variant="primary"
+							icon="check"
+							marginLeft={2}
+							onClick={() => {addRequests(wrapped, needTable, linkFieldId,
+													needNameFieldId, needTypeFieldId, familyRecId,
+													setFamilyRecId, setFamilyId);
+									}}
+							alignSelf="right"
+						>
+							Done
+						</Button>
+					</Box>
+
 				</div>		
 			);
 			
@@ -193,7 +248,8 @@ function Needs() {
 								variant="dark"
 								size="xlarge"
 								onClick={() => {
-									setFamilyRecId(record.id);
+									familySelected(setFamilyRecId, record.id, templateRecords,
+														setWrapped, templateNameField, templateTypeField);
 								}}
 								
 							>
@@ -210,21 +266,161 @@ function Needs() {
 	}
 }
 
+function HeaderRow() {
+    return (
+        <Row hasThickBorderBottom={true}>
+            <Cell width={ITEM_CELL_WIDTH_PERCENTAGE}>
+                <Text textColor="light">Request Item</Text>
+            </Cell>
+            <Cell width={CATEGORY_CELL_WIDTH_PERCENTAGE}>
+                <Text textColor="light">Item Type</Text>
+            </Cell>
+			<Cell width={QUANTITY_CELL_WIDTH_PERCENTAGE}>
+                <Text textColor="light">Quantity</Text>
+            </Cell>
+			<Cell width={INCREASE_CELL_WIDTH_PERCENTAGE}>
+                <Text textColor="light">Increase</Text>
+            </Cell>
+            <Cell width={DECREASE_CELL_WIDTH_PERCENTAGE}>
+                <Text textColor="light">Decrease</Text>
+            </Cell>
+
+        </Row>
+		
+    );
+}
+
+function ItemRow({record, key, wrapper, setter}) {
+    return (
+        <Row>
+            <Cell width={ITEM_CELL_WIDTH_PERCENTAGE}>
+                <Text fontWeight="strong">{record.getName()}</Text>
+            </Cell>
+            <Cell width={CATEGORY_CELL_WIDTH_PERCENTAGE}>
+                <Text variant="paragraph" margin={0} style={{whiteSpace: 'pre'}}>
+                    {record.getType()}
+                </Text>
+            </Cell>
+			<Cell width={QUANTITY_CELL_WIDTH_PERCENTAGE}>
+                <Text variant="paragraph" margin={0} style={{whiteSpace: 'pre'}}>
+                    {record.getQuantity()}
+                </Text>
+            </Cell>
+			<Cell width={INCREASE_CELL_WIDTH_PERCENTAGE}>
+				<input
+					type='button'
+					onClick={() => incrementCount(record, wrapper, setter)}
+					value='+'
+				/>
+            </Cell>
+			<Cell width={DECREASE_CELL_WIDTH_PERCENTAGE}>
+				<input
+					type='button'
+					onClick={() => decrementCount(record, wrapper, setter)}
+					value='-'
+				/>
+             </Cell>
+
+        </Row>
+    );
+}
+
+// Renders the content in a horizontal row.
+function Row({children, isHeader}) {
+    return (
+        <Box display="flex" borderBottom={isHeader ? 'thick' : 'default'} paddingY={2}>
+            {children}
+        </Box>
+    );
+}
+
+// Renders a table cell with border and children.
+function Cell({children, width}) {
+    return (
+        <Box flex="none" width={width} paddingRight={1}>
+            {children}
+        </Box>
+    );
+}
+
+// When the family number is picked, ie click on the name to select that family we want to 
+// create the array of item to select from based on the records in the template table.
+// It does mean that additions to the template table will only be picked up for the next family
+// selected.  
+function familySelected(setFamilyRecId, recordid, templateRecords, setWrapped, templateNameField, templateTypeField){
+	const starter = [];	
+	templateRecords.map(record => (
+		starter.push(new RecordProxy(record.id,
+									 record.getCellValue(templateNameField),
+									 record.getCellValueAsString(templateTypeField)))
+							));
+	setWrapped(starter);
+	setFamilyRecId(recordid);
+}
+
 function setIds(setter1, value1, setter2, value2){
 	setter1(value1);
 	setter2(value2);
 }
 
-async function addNeedRecord(tNeed, linkField, nameField, name, typeField, type, familyRecordId){
-	
-	if (tNeed.hasPermissionToCreateRecord()) {
-		
-			const newRecordId = await tNeed.createRecordAsync({
-							[linkField]: [{id: familyRecordId}],
-							[nameField]: name,
-							[typeField]: {name: type},
-								});
+// add one to the quantity of the element.  This operation mutates
+// the array which is generally considered bad practice.  What should
+// really happen is for a new array to be created to replace the 
+// existing one.  It doesnt seem to cause a problem at the moment.
+// the call to setWrapper will trigger a render.
+function incrementCount(record, wrapper, setWrapper){
+	record.setQuantity(record.getQuantity()+1);
+	setWrapper(wrapper => [...wrapper]);
+}
+
+// see comments for increment above
+function decrementCount(record, wrapper, setWrapper){
+	if (record.getQuantity() > 0) {
+		record.setQuantity(record.getQuantity() - 1);
 	}
+	setWrapper(wrapper => [...wrapper]);
+}
+
+// loop through the array and create as many requests as the quantity indicates
+// so a quantity of 3 creates three requests of quantity 1 not one of qty = 3
+// the try catch will pick up any errors.  Especially the case where the type in
+// the template isnt a select option on the request table.  One is text and the other
+// a select field.
+// It would be good to detect that scenario and generate a warning.  Or possibly
+// make the template a select field which requires more privilege to changes and
+// so more likely to keep the two select fields in line.  A script to set iptions might
+// be usefull
+async function addRequests(wrapped, tNeed, linkField, nameField, typeField, familyRecordId, settera, setterb, setterc){
+	if (tNeed.hasPermissionToCreateRecord()) {
+		try {
+			let insertRecords = [];
+			for (let record of wrapped){
+				let qty = record.quantity;
+				if (qty > 0){
+					for (let i = 0; i < qty; i++){
+						insertRecords.push({
+							fields: {
+								[linkField]: [{id: familyRecordId}],
+								[nameField]: record.name,
+								[typeField]: {name: record.type},
+							}
+						})
+					}
+				}
+			}
+			// A maximum of 50 record creations are allowed at one time, so do it in batches
+			while (insertRecords.length > 0) {
+				console.log("creating");
+				await tNeed.createRecordsAsync(insertRecords.slice(0, 50));
+				insertRecords = insertRecords.slice(50);
+			}
+		}
+		catch (err) {
+		}
+	}
+	settera("");
+	setterb("");
+	
 }
 
 function SettingsMenu(props) {
@@ -394,10 +590,12 @@ function SettingsMenu(props) {
                                     table={props.templateTable}
                                     globalConfigKey={GlobalConfigKeys.TEMPLATE_TYPE_FIELD_ID}
                                     allowedTypes={[
-                                        FieldType.SINGLE_LINE_TEXT
+                                        FieldType.SINGLE_LINE_TEXT,
+										FieldType.SINGLE_SELECT			
                                     ]}
                                 />
-                            </FormField>							
+                            </FormField>
+							
 						</Box>
                     </div>
                 }
