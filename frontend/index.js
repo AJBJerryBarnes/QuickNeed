@@ -5,6 +5,7 @@
 // 22/5/23	 v1.2 Jerry Barnes  Fix crash when template table defined but template fields not
 // 30/5/23   v1.3 Jerry Barnes  Refer to requests items rather then need items
 // 10/6/23	 v1.4 Jerry Barnes	Add a quantity to what is requested
+// 16/7/23	 v1.5 Jerry Barnes	Add facility to filter for the item name
 //
 // 
 
@@ -13,6 +14,7 @@ import { FormField, Input, ViewPicker, initializeBlock,useGlobalConfig, useSetti
 	Box,
     Heading,
 	Text,
+	SelectButtons,
     ViewPickerSynced,
     RecordCard,
     TablePickerSynced,
@@ -26,6 +28,8 @@ const QUANTITY_CELL_WIDTH_PERCENTAGE	= '10%';
 const INCREASE_CELL_WIDTH_PERCENTAGE	= '10%';
 const DECREASE_CELL_WIDTH_PERCENTAGE	= '10%';
 
+const EXPAND_VALUE 		= "expand";
+const COLLAPSE_VALUE 	= "callapse";
 
 const GlobalConfigKeys = {
     TEMPLATE_TABLE_ID: 'templateTableId',
@@ -46,27 +50,17 @@ const GlobalConfigKeys = {
 
 class RecordProxy {
 	quantity = 0;
-	clicked = false;
-	constructor(id, name, type){
+	constructor(id, name, type, header){
 		this.id = id;
 		this.name = name;
 		this.type = type;
 		this.quantity = 0;
-		this.clicked = false;
-	}
-	
-	click(){
-		this.clicked = true;
 	}
 	
 	setQuantity(amount){
 		this.quantity = amount;
 	}
-	
-	getClicked(){
-		return this.clicked;
-	}
-	
+		
 	getQuantity(){
 		return this.quantity;
 	}
@@ -142,11 +136,8 @@ function Needs() {
 
 	const [familyId, setFamilyId] = useState("");	
 	const [familyRecId, setFamilyRecId] = useState("");
+	const [itemName, setItemName] = useState("");
 	
-	//const [paymentRecId, setPaymentRecId] = useState("");	
-
-	//const memberQuery = memberTable.selectRecords();
-    //const memberRecordset = useRecords(memberQuery);
 	
 	const familyRecordset = useRecords(familyTable ? familyTable.selectRecords() : null);
 
@@ -210,10 +201,14 @@ function Needs() {
 						</li>
 					))}
 					<br />
+					<FormField label="Item name">
+						<Input value={itemName} onChange={e => setItemName(e.target.value)} />
+					</FormField>			
+					<br />
 					<Box margin={3}>
 						<HeaderRow />
 						{wrapped.map(record => (
-							<ItemRow record={record} key={record.getId()} wrapper={wrapped} setter={setWrapped} />
+							<ItemRow record={record} key={record.getId()} wrapper={wrapped} setter={setWrapped} name={itemName}/>
 						))}
 					</Box>
 
@@ -290,45 +285,51 @@ function HeaderRow() {
     );
 }
 
-function ItemRow({record, key, wrapper, setter}) {
-    return (
-        <Row>
-            <Cell width={ITEM_CELL_WIDTH_PERCENTAGE}>
-                <Text fontWeight="strong">{record.getName()}</Text>
-            </Cell>
-            <Cell width={CATEGORY_CELL_WIDTH_PERCENTAGE}>
-                <Text variant="paragraph" margin={0} style={{whiteSpace: 'pre'}}>
-                    {record.getType()}
-                </Text>
-            </Cell>
-			<Cell width={QUANTITY_CELL_WIDTH_PERCENTAGE}>
-                <Text variant="paragraph" margin={0} style={{whiteSpace: 'pre'}}>
-                    {record.getQuantity()}
-                </Text>
-            </Cell>
-			<Cell width={INCREASE_CELL_WIDTH_PERCENTAGE}>
-				<input
-					type='button'
-					onClick={() => incrementCount(record, wrapper, setter)}
-					value='+'
-				/>
-            </Cell>
-			<Cell width={DECREASE_CELL_WIDTH_PERCENTAGE}>
-				<input
-					type='button'
-					onClick={() => decrementCount(record, wrapper, setter)}
-					value='-'
-				/>
-             </Cell>
+function ItemRow({record, key, wrapper, setter, name}) {
+	
+	if (record.getName().toLowerCase().startsWith(name.toLowerCase())){
+		return (
+			<Row>
+				<Cell width={ITEM_CELL_WIDTH_PERCENTAGE}>
+					<Text fontWeight="strong">{record.getName()}</Text>
+				</Cell>
+				<Cell width={CATEGORY_CELL_WIDTH_PERCENTAGE}>
+					<Text variant="paragraph" margin={0} style={{whiteSpace: 'pre'}}>
+						{record.getType()}
+					</Text>
+				</Cell>
+				<Cell width={QUANTITY_CELL_WIDTH_PERCENTAGE}>
+					<Text variant="paragraph" margin={0} style={{whiteSpace: 'pre'}}>
+						{record.getQuantity()}
+					</Text>
+				</Cell>
+				<Cell width={INCREASE_CELL_WIDTH_PERCENTAGE}>
+					<input
+						type='button'
+						onClick={() => incrementCount(record, wrapper, setter)}
+						value='+'
+					/>
+				</Cell>
+				<Cell width={DECREASE_CELL_WIDTH_PERCENTAGE}>
+					<input
+						type='button'
+						onClick={() => decrementCount(record, wrapper, setter)}
+						value='-'
+					/>
+				 </Cell>
 
-        </Row>
-    );
+			</Row>
+		   )
+		} else {
+			return "";
+		}
+
 }
 
 // Renders the content in a horizontal row.
-function Row({children, isHeader}) {
+function Row({children}) {
     return (
-        <Box display="flex" borderBottom={isHeader ? 'thick' : 'default'} paddingY={2}>
+        <Box display="flex" borderBottom={'default'} paddingY={2}>
             {children}
         </Box>
     );
@@ -348,12 +349,17 @@ function Cell({children, width}) {
 // It does mean that additions to the template table will only be picked up for the next family
 // selected.  
 function familySelected(setFamilyRecId, recordid, templateRecords, setWrapped, templateNameField, templateTypeField){
-	const starter = [];	
-	templateRecords.map(record => (
+	const starter = [];
+	let cat = "";
+	
+	for (let record of templateRecords){
+	
 		starter.push(new RecordProxy(record.id,
 									 record.getCellValue(templateNameField),
-									 record.getCellValueAsString(templateTypeField)))
-							));
+									 record.getCellValueAsString(templateTypeField),
+									 false));
+		cat = record.getCellValueAsString(templateTypeField);							 
+	}
 	setWrapped(starter);
 	setFamilyRecId(recordid);
 }
@@ -380,6 +386,7 @@ function decrementCount(record, wrapper, setWrapper){
 	}
 	setWrapper(wrapper => [...wrapper]);
 }
+
 
 // loop through the array and create as many requests as the quantity indicates
 // so a quantity of 3 creates three requests of quantity 1 not one of qty = 3
